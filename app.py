@@ -1,15 +1,14 @@
 import os
 import sys
 import pandas as pd
+from openpyxl import Workbook
 from urllib.parse import urljoin
-from playwright.sync_api import sync_playwright
-from PyQt5.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
-    QPushButton, QTextEdit, QFileDialog
-)
+from openpyxl.styles import Font
 from PyQt5.QtCore import QThread, pyqtSignal
 from cropper import process_pdf_from_url                
+from playwright.sync_api import sync_playwright
 from model import extract_pdf_details_from_image    
+from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,QPushButton, QTextEdit, QFileDialog)
 
 
 def normalize_signature(sig):
@@ -23,7 +22,6 @@ def normalize_signature(sig):
         return {"name_Address": sig.strip(), "mail": "", "phone": ""}
     return {"name_Address": "", "mail": "", "phone": ""}
 
-# ---------------- Worker Thread ----------------
 class ScraperThread(QThread):
     log_signal = pyqtSignal(str)
     finished_signal = pyqtSignal(str)
@@ -150,8 +148,6 @@ class ScraperThread(QThread):
             "PDF URL"
         ])
         try:
-            from openpyxl import Workbook
-            from openpyxl.styles import Font
             wb = Workbook()
             ws = wb.active
             ws.title = "Results"
