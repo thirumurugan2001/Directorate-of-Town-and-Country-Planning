@@ -515,7 +515,7 @@ class DTCPApp(QWidget):
         self.progress.setVisible(False)
         self.loader.setVisible(False)        
         if hasattr(self, 'loader_movie'):
-            self.loader_movie.stop()        
+            self.loader_movie.stop()       
         success_msg = f"""
         <div style='font-family: Segoe UI; font-size: 14px; color: #ffffff; background: #000000; padding: 25px; border-radius: 8px; border: 2px solid #dc2626; max-width: 500px;'>
             <div style='text-align: center; margin-bottom: 20px;'>
