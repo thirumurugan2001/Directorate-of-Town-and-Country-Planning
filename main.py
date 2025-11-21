@@ -22,7 +22,8 @@ def normalize_signature(sig):
 
 class ScraperThread(QThread):
     finished_signal = pyqtSignal(str)
-    progress_signal = pyqtSignal(int, int)    
+    progress_signal = pyqtSignal(int, int)  
+
     def __init__(self, department, approval_type, district, year, output_excel):
         super().__init__()
         self.department = department
@@ -32,6 +33,7 @@ class ScraperThread(QThread):
         self.output_excel = output_excel
         self.output_dir = "cropped_images"
         os.makedirs(self.output_dir, exist_ok=True)
+
     def run(self):
         try:
             with sync_playwright() as p:
@@ -219,8 +221,7 @@ class DTCPApp(QWidget):
                 font-size: 14px;
                 color: #ffffff;
                 background-color: #000000;
-            }
-            
+            }            
             QLabel#MainTitle {
                 color: #dc2626;
                 font-size: 32px;
@@ -228,32 +229,28 @@ class DTCPApp(QWidget):
                 letter-spacing: -0.5px;
                 text-align: center;
                 background: transparent;
-            }
-            
+            }            
             QLabel#CompanyName {
                 color: #ffffff;
                 font-size: 24px;
                 font-weight: 700;
                 text-align: center;
                 background: transparent;
-            }
-            
+            }            
             QLabel#ProductName {
                 color: #dc2626;
                 font-size: 20px;
                 font-weight: 600;
                 text-align: center;
                 background: transparent;
-            }
-            
+            }            
             QLabel#ProductDesc {
                 color: #cccccc;
                 font-size: 14px;
                 font-weight: 400;
                 text-align: center;
                 background: transparent;
-            }
-            
+            }            
             QLabel#SubTitleLabel {
                 color: #cccccc;
                 font-size: 12px;
@@ -261,13 +258,11 @@ class DTCPApp(QWidget):
                 margin-bottom: 15px;
                 text-align: center;
                 background: transparent;
-            }
-            
+            }            
             QLabel#PythonLogo {
                 background: transparent;
                 border: none;
-            }
-            
+            }            
             QGroupBox {
                 border: 2px solid #dc2626;
                 border-radius: 8px;
@@ -276,8 +271,7 @@ class DTCPApp(QWidget):
                 margin-top: 8px;
                 font-weight: 700;
                 color: #ffffff;
-            }
-            
+            }            
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 12px;
@@ -286,8 +280,7 @@ class DTCPApp(QWidget):
                 font-weight: 700;
                 font-size: 14px;
                 background-color: #1a1a1a;
-            }
-            
+            }            
             QComboBox {
                 background-color: #000000;
                 border: 2px solid #dc2626;
@@ -298,21 +291,18 @@ class DTCPApp(QWidget):
                 color: #ffffff;
                 font-size: 13px;
                 min-height: 20px;
-            }
-            
+            }            
             QComboBox:focus {
                 border-color: #b91c1c;
                 outline: none;
-            }
-            
+            }            
             QComboBox::drop-down {
                 subcontrol-origin: padding;
                 subcontrol-position: top right;
                 width: 20px;
                 border-left: 1px solid #dc2626;
                 border-radius: 0px;
-            }
-            
+            }            
             QComboBox QAbstractItemView {
                 background-color: #000000;
                 border: 2px solid #dc2626;
@@ -321,18 +311,15 @@ class DTCPApp(QWidget):
                 selection-color: #ffffff;
                 outline: none;
                 padding: 4px;
-            }
-            
+            }            
             QComboBox QAbstractItemView::item {
                 padding: 6px 8px;
                 border-radius: 4px;
-            }
-            
+            }            
             QComboBox QAbstractItemView::item:selected {
                 background-color: #dc2626;
                 color: #ffffff;
-            }
-            
+            }            
             QPushButton {
                 background-color: #dc2626;
                 color: white;
@@ -343,21 +330,17 @@ class DTCPApp(QWidget):
                 font-size: 14px;
                 letter-spacing: 0.3px;
                 min-height: 20px;
-            }
-            
+            }            
             QPushButton:hover {
                 background-color: #b91c1c;
-            }
-            
+            }            
             QPushButton:pressed {
                 background-color: #991b1b;
-            }
-            
+            }            
             QPushButton:disabled {
                 background-color: #666666;
                 color: #999999;
-            }
-            
+            }            
             QProgressBar {
                 border: 2px solid #dc2626;
                 border-radius: 6px;
@@ -367,14 +350,12 @@ class DTCPApp(QWidget):
                 font-weight: 600;
                 height: 25px;
                 font-size: 12px;
-            }
-            
+            }            
             QProgressBar::chunk {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #dc2626, stop:1 #b91c1c);
                 border-radius: 4px;
-            }
-            
+            }            
             QLabel {
                 background: transparent;
                 color: #ffffff;
@@ -451,16 +432,7 @@ class DTCPApp(QWidget):
         district_layout = QVBoxLayout()
         district_layout.addWidget(QLabel("District"))
         self.district = QComboBox()
-        districts = [
-            "Ariyalur", "Chengalpattu", "Chennai", "Coimbatore", "Cuddalore",
-            "Dharmapuri", "Dindigul", "Erode", "Kallakurichi", "Kancheepuram",
-            "Kanniyakumari", "Karur", "Krishnagiri", "Madurai", "Mayiladuthurai",
-            "Nagapattinam", "Namakkal", "Perambalur", "Pudukkottai", "Ramanathapuram",
-            "Ranipet", "Salem", "Sivagangai", "Tenkasi", "Thanjavur",
-            "Theni", "The Nilgiris", "Thoothukkudi", "Tiruchirappalli", "Tirunelveli",
-            "Tirupathur", "Tiruppur", "Tiruvallur", "Tiruvannamalai", "Tiruvarur",
-            "Vellore", "Vilupuram", "Virudhunagar"
-        ]
+        districts = ["Ariyalur", "Chengalpattu", "Chennai", "Coimbatore", "Cuddalore","Dharmapuri", "Dindigul", "Erode", "Kallakurichi", "Kancheepuram","Kanniyakumari", "Karur", "Krishnagiri", "Madurai", "Mayiladuthurai","Nagapattinam", "Namakkal", "Perambalur", "Pudukkottai", "Ramanathapuram","Ranipet", "Salem", "Sivagangai", "Tenkasi", "Thanjavur","Theni", "The Nilgiris", "Thoothukkudi", "Tiruchirappalli", "Tirunelveli","Tirupathur", "Tiruppur", "Tiruvallur", "Tiruvannamalai", "Tiruvarur","Vellore", "Vilupuram", "Virudhunagar"]
         self.district.addItems(districts)
         self.district.setFixedWidth(200)
         district_layout.addWidget(self.district)
@@ -485,7 +457,7 @@ class DTCPApp(QWidget):
             self.loader_movie = QMovie(gif_path)
             self.loader.setMovie(self.loader_movie)
         else:
-            self.loader.setText("⏳ Processing...")
+            self.loader.setText("Processing...")
             self.loader.setStyleSheet("font-size: 16px; color: #dc2626; font-weight: bold;")
         self.loader.setVisible(False)
         progress_layout.addWidget(self.loader)        
@@ -514,12 +486,7 @@ class DTCPApp(QWidget):
         self.setLayout(self.layout)
 
     def start_scraping(self):
-        save_path, _ = QFileDialog.getSaveFileName(
-            self, 
-            "Save Excel File", 
-            f"DTCP_Results_{self.district.currentText()}_{self.year.currentText()}.xlsx", 
-            "Excel Files (*.xlsx)"
-        )        
+        save_path, _ = QFileDialog.getSaveFileName(self, "Save Excel File", f"DTCP_Results_{self.district.currentText()}_{self.year.currentText()}.xlsx", "Excel Files (*.xlsx)")        
         if not save_path:
             return            
         self.scrape_btn.setEnabled(False)
