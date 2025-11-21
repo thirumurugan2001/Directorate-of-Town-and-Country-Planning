@@ -557,7 +557,7 @@ if __name__ == "__main__":
     app.setApplicationName("DTCP Plan Permit Scraper")
     app.setApplicationVersion("1.0")
     app.setOrganizationName("Ajantha Bathroom Products")
-    app.setOrganizationDomain("ajantha.com")    
+    app.setOrganizationDomain("ajantha.com")   
     win = DTCPApp()
     win.show()
     sys.exit(app.exec_())
