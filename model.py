@@ -5,6 +5,7 @@ import json
 from dotenv import load_dotenv
 load_dotenv()
 
+
 def extract_pdf_details_from_image(image_path: str):
     try:
         if not validate_image(image_path):
