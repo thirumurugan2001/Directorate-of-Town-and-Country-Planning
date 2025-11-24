@@ -94,22 +94,40 @@ class ScraperThread(QThread):
                         self.progress_signal.emit(current_count, min(10, total_rows))                        
                         cells = row.query_selector_all("td")
                         if len(cells) < 10:
-                            continue                            
-                        application_no     = cells[1].inner_text().strip()
-                        district_val       = cells[2].inner_text().strip()
-                        approval_type_val  = cells[3].inner_text().strip()
-                        permit_date        = cells[4].inner_text().strip()
-                        total_fees         = cells[5].inner_text().strip()
-                        project_title        = "N/A"
-                        applicant_signature  = ""                    
-                        architect_signature  = {"name_Address": "", "mail": "", "phone": ""}
-                        pdf_url_for_link     = ""                        
+                            continue
+                            
+                        s_no = cells[0].inner_text().strip()
+                        application_no = cells[1].inner_text().strip()
+                        district_val = cells[2].inner_text().strip()
+                        approval_type_val = cells[3].inner_text().strip()
+                        permit_date = cells[4].inner_text().strip()
+                        total_fees = cells[5].inner_text().strip()                        
+                        fees_details_available = False
                         try:
-                            pdf_element = cells[9].query_selector("a")
-                            if pdf_element:
-                                pdf_url = pdf_element.get_attribute("href") or ""
-                                pdf_url_for_link = urljoin(page.url, pdf_url)                                
-                                img, msg = process_pdf_from_url(pdf_url_for_link)                                
+                            fees_button = cells[6].query_selector("button")
+                            if fees_button:
+                                fees_details_available = True
+                        except:
+                            pass                        
+                        approval_no = cells[7].inner_text().strip()                        
+                        approval_letter_url = ""
+                        try:
+                            approval_letter_element = cells[8].query_selector("a")
+                            if approval_letter_element:
+                                approval_letter_href = approval_letter_element.get_attribute("href") or ""
+                                approval_letter_url = urljoin(page.url, approval_letter_href)
+                        except:
+                            pass                        
+                        approved_plan_url = ""
+                        project_title = "N/A"
+                        applicant_signature = ""                    
+                        architect_signature = {"name_Address": "", "mail": "", "phone": ""}
+                        try:
+                            approved_plan_element = cells[9].query_selector("a")
+                            if approved_plan_element:
+                                approved_plan_href = approved_plan_element.get_attribute("href") or ""
+                                approved_plan_url = urljoin(page.url, approved_plan_href)                                
+                                img, msg = process_pdf_from_url(approved_plan_url)                                
                                 if img:
                                     filename = f"{application_no}_full.png".replace("/", "_")
                                     filepath = os.path.join(self.output_dir, filename)
@@ -118,24 +136,39 @@ class ScraperThread(QThread):
                                         seal_data = extract_pdf_details_from_image(filepath) or {}
                                     except Exception as me:
                                         seal_data = {}                                        
-                                    project_title       = seal_data.get("PROJECT TITLE", "N/A")
+                                    project_title = seal_data.get("PROJECT TITLE", "N/A")
                                     applicant_signature = seal_data.get("OWNER SIGNATURE", "")                                
-                                    architect_signature  = normalize_signature(seal_data.get("REGISTERED ENGINEER", {}))
+                                    architect_signature = normalize_signature(seal_data.get("REGISTERED ENGINEER", {}))
                         except Exception as e:
-                            pass
+                            pass                        
+                        demand_details_url = ""
+                        try:
+                            demand_details_element = cells[10].query_selector("a")
+                            if demand_details_element:
+                                demand_details_href = demand_details_element.get_attribute("href") or ""
+                                demand_details_url = urljoin(page.url, demand_details_href)
+                        except:
+                            pass                        
                         rows_data.append({
+                            "S.No": s_no,
                             "Application No": application_no,
                             "District": district_val,
                             "Approval Type": approval_type_val,
                             "Permit Issue Date": permit_date,
                             "Total Fees": total_fees,
+                            "Fees Details Available": "Yes" if fees_details_available else "No",
+                            "Approval No": approval_no,
+                            "Approval Letter URL": approval_letter_url,
+                            "Approved Plan URL": approved_plan_url,
+                            "Demand Details URL": demand_details_url,
                             "Project Title": project_title,
                             "Applicant/Owner Signature": applicant_signature,                        
                             "Registered Engineer Name/Address": architect_signature.get("name_Address", ""),
                             "Registered Engineer Mail": architect_signature.get("mail", ""),
                             "Registered Engineer Phone": architect_signature.get("phone", ""),
-                            "PDF URL": pdf_url_for_link,
-                            "PDF Link": "View PDF"
+                            "Approval Letter Link": "Download" if approval_letter_url else "N/A",
+                            "Approved Plan Link": "Download" if approved_plan_url else "N/A",
+                            "Demand Details Link": "Download" if demand_details_url else "N/A"
                         })                        
                         scraped_count += 1                    
                     next_btn_li = page.query_selector("li#example_next")
@@ -150,36 +183,53 @@ class ScraperThread(QThread):
             self.finished_signal.emit(f"Excel saved to: {self.output_excel}")            
         except Exception as e:
             self.finished_signal.emit(f"Scraping failed: {e}")
+
     def save_to_excel(self, rows_data):
         try:
             wb = Workbook()
             ws = wb.active
             ws.title = "DTCP Results"            
             headers = [
-                "Application No", "District", "Approval Type",
-                "Permit Issue Date", "Total Fees",
+                "S.No", "Application No", "District", "Approval Type",
+                "Permit Issue Date", "Total Fees", "Fees Details Available",
+                "Approval No", "Approval Letter", "Approved Plan", "Demand Details",
                 "Project Title", "Applicant/Owner Signature",
-                "Registered Engineer Name/Address", "Registered Engineer Mail", "Registered Engineer Phone",
-                "PDF Link"
+                "Registered Engineer Name/Address", "Registered Engineer Mail", "Registered Engineer Phone"
             ]
             ws.append(headers)            
             for row in rows_data:
                 ws.append([
+                    row["S.No"],
                     row["Application No"],
                     row["District"],
                     row["Approval Type"],
                     row["Permit Issue Date"],
                     row["Total Fees"],
+                    row["Fees Details Available"],
+                    row["Approval No"],
+                    "Download" if row["Approval Letter URL"] else "N/A",
+                    "Download" if row["Approved Plan URL"] else "N/A", 
+                    "Download" if row["Demand Details URL"] else "N/A",
                     row["Project Title"],
                     row["Applicant/Owner Signature"],
                     row["Registered Engineer Name/Address"],
                     row["Registered Engineer Mail"],
-                    row["Registered Engineer Phone"],
-                    "View PDF"
+                    row["Registered Engineer Phone"]
                 ])                
-                cell = ws.cell(row=ws.max_row, column=11)
-                cell.hyperlink = row.get("PDF URL", "")
-                cell.font = Font(color="0000FF", underline="single")                
+                approval_letter_cell = ws.cell(row=ws.max_row, column=9)
+                if row["Approval Letter URL"]:
+                    approval_letter_cell.hyperlink = row["Approval Letter URL"]
+                    approval_letter_cell.font = Font(color="0000FF", underline="single")                
+                approved_plan_cell = ws.cell(row=ws.max_row, column=10)
+                if row["Approved Plan URL"]:
+                    approved_plan_cell.hyperlink = row["Approved Plan URL"]
+                    approved_plan_cell.font = Font(color="0000FF", underline="single")
+                
+                demand_details_cell = ws.cell(row=ws.max_row, column=11)
+                if row["Demand Details URL"]:
+                    demand_details_cell.hyperlink = row["Demand Details URL"]
+                    demand_details_cell.font = Font(color="0000FF", underline="single")
+                
             wb.save(self.output_excel)            
         except Exception as e:
             raise Exception(f"Failed to write Excel: {e}")
