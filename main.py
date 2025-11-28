@@ -15,7 +15,11 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QL
 
 def normalize_signature(sig):
     if isinstance(sig, dict):
-        return {"name_Address": sig.get("name_Address", "") if sig.get("name_Address", "") is not None else "","mail": sig.get("mail", "") if sig.get("mail", "") is not None else "","phone": sig.get("phone", "") if sig.get("phone", "") is not None else ""}
+        return {
+            "name_Address": sig.get("name_Address", "") if sig.get("name_Address", "") is not None else "",
+            "mail": sig.get("mail", "") if sig.get("mail", "") is not None else "",
+            "phone": sig.get("phone", "") if sig.get("phone", "") is not None else ""
+        }
     if isinstance(sig, str) and sig.strip():
         return {"name_Address": sig.strip(), "mail": "", "phone": ""}
     return {"name_Address": "", "mail": "", "phone": ""}
@@ -39,7 +43,7 @@ class ScraperThread(QThread):
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=False)
                 page = browser.new_page()
-                page.goto("https://onlineppa.tn.gov.in/approved-plan-list", timeout=60000)                
+                page.goto("https://onlineppa.tn.gov.in/approved-plan-list", timeout=100000)                
                 page.evaluate(f"""
                     () => {{
                         function selectNiceOption(selectId, visibleText) {{
@@ -94,34 +98,19 @@ class ScraperThread(QThread):
                         self.progress_signal.emit(current_count, min(10, total_rows))                        
                         cells = row.query_selector_all("td")
                         if len(cells) < 10:
-                            continue
-                            
+                            continue                            
                         s_no = cells[0].inner_text().strip()
                         application_no = cells[1].inner_text().strip()
                         district_val = cells[2].inner_text().strip()
                         approval_type_val = cells[3].inner_text().strip()
                         permit_date = cells[4].inner_text().strip()
-                        total_fees = cells[5].inner_text().strip()                        
-                        fees_details_available = False
-                        try:
-                            fees_button = cells[6].query_selector("button")
-                            if fees_button:
-                                fees_details_available = True
-                        except:
-                            pass                        
-                        approval_no = cells[7].inner_text().strip()                        
-                        approval_letter_url = ""
-                        try:
-                            approval_letter_element = cells[8].query_selector("a")
-                            if approval_letter_element:
-                                approval_letter_href = approval_letter_element.get_attribute("href") or ""
-                                approval_letter_url = urljoin(page.url, approval_letter_href)
-                        except:
-                            pass                        
+                        total_fees = cells[5].inner_text().strip()
                         approved_plan_url = ""
                         project_title = "N/A"
                         applicant_signature = ""                    
                         architect_signature = {"name_Address": "", "mail": "", "phone": ""}
+                        structural_engineer_signature = {"name_Address": "", "mail": "", "phone": ""}
+                        
                         try:
                             approved_plan_element = cells[9].query_selector("a")
                             if approved_plan_element:
@@ -134,13 +123,20 @@ class ScraperThread(QThread):
                                     img.save(filepath)                                    
                                     try:
                                         seal_data = extract_pdf_details_from_image(filepath) or {}
+                                        print(f"[DEBUG] Model response for {application_no}: {seal_data}")
                                     except Exception as me:
+                                        print(f"[ERROR] Model extraction failed: {me}")
                                         seal_data = {}                                        
+                                    
+                                    # Extract all fields from model response
                                     project_title = seal_data.get("PROJECT TITLE", "N/A")
                                     applicant_signature = seal_data.get("OWNER SIGNATURE", "")                                
                                     architect_signature = normalize_signature(seal_data.get("REGISTERED ENGINEER", {}))
+                                    structural_engineer_signature = normalize_signature(seal_data.get("STRUCTURAL ENGINEER", {}))
                         except Exception as e:
+                            print(f"[ERROR] PDF processing failed: {e}")
                             pass                        
+                        
                         demand_details_url = ""
                         try:
                             demand_details_element = cells[10].query_selector("a")
@@ -148,7 +144,8 @@ class ScraperThread(QThread):
                                 demand_details_href = demand_details_element.get_attribute("href") or ""
                                 demand_details_url = urljoin(page.url, demand_details_href)
                         except:
-                            pass                        
+                            pass
+                        
                         rows_data.append({
                             "S.No": s_no,
                             "Application No": application_no,
@@ -156,9 +153,6 @@ class ScraperThread(QThread):
                             "Approval Type": approval_type_val,
                             "Permit Issue Date": permit_date,
                             "Total Fees": total_fees,
-                            "Fees Details Available": "Yes" if fees_details_available else "No",
-                            "Approval No": approval_no,
-                            "Approval Letter URL": approval_letter_url,
                             "Approved Plan URL": approved_plan_url,
                             "Demand Details URL": demand_details_url,
                             "Project Title": project_title,
@@ -166,7 +160,9 @@ class ScraperThread(QThread):
                             "Registered Engineer Name/Address": architect_signature.get("name_Address", ""),
                             "Registered Engineer Mail": architect_signature.get("mail", ""),
                             "Registered Engineer Phone": architect_signature.get("phone", ""),
-                            "Approval Letter Link": "Download" if approval_letter_url else "N/A",
+                            "Structural Engineer Name/Address": structural_engineer_signature.get("name_Address", ""),
+                            "Structural Engineer Mail": structural_engineer_signature.get("mail", ""),
+                            "Structural Engineer Phone": structural_engineer_signature.get("phone", ""),
                             "Approved Plan Link": "Download" if approved_plan_url else "N/A",
                             "Demand Details Link": "Download" if demand_details_url else "N/A"
                         })                        
@@ -191,12 +187,36 @@ class ScraperThread(QThread):
             ws.title = "DTCP Results"            
             headers = [
                 "S.No", "Application No", "District", "Approval Type",
-                "Permit Issue Date", "Total Fees", "Fees Details Available",
-                "Approval No", "Approval Letter", "Approved Plan", "Demand Details",
+                "Permit Issue Date", "Total Fees", "Approved Plan", "Demand Details",
                 "Project Title", "Applicant/Owner Signature",
-                "Registered Engineer Name/Address", "Registered Engineer Mail", "Registered Engineer Phone"
+                "Registered Engineer Name/Address", "Registered Engineer Mail", "Registered Engineer Phone",
+                "Structural Engineer Name/Address", "Structural Engineer Mail", "Structural Engineer Phone"
             ]
             ws.append(headers)            
+            
+            # Set column widths for better readability
+            column_widths = {
+                'A': 8,    # S.No
+                'B': 20,   # Application No
+                'C': 15,   # District
+                'D': 18,   # Approval Type
+                'E': 15,   # Permit Issue Date
+                'F': 15,   # Total Fees
+                'G': 15,   # Approved Plan
+                'H': 15,   # Demand Details
+                'I': 40,   # Project Title
+                'J': 30,   # Applicant/Owner Signature
+                'K': 40,   # Registered Engineer Name/Address
+                'L': 25,   # Registered Engineer Mail
+                'M': 20,   # Registered Engineer Phone
+                'N': 40,   # Structural Engineer Name/Address
+                'O': 25,   # Structural Engineer Mail
+                'P': 20,   # Structural Engineer Phone
+            }
+            
+            for col, width in column_widths.items():
+                ws.column_dimensions[col].width = width
+            
             for row in rows_data:
                 ws.append([
                     row["S.No"],
@@ -205,30 +225,34 @@ class ScraperThread(QThread):
                     row["Approval Type"],
                     row["Permit Issue Date"],
                     row["Total Fees"],
-                    row["Fees Details Available"],
-                    row["Approval No"],
-                    "Download" if row["Approval Letter URL"] else "N/A",
-                    "Download" if row["Approved Plan URL"] else "N/A", 
+                    "Download" if row["Approved Plan URL"] else "N/A",
                     "Download" if row["Demand Details URL"] else "N/A",
                     row["Project Title"],
                     row["Applicant/Owner Signature"],
                     row["Registered Engineer Name/Address"],
                     row["Registered Engineer Mail"],
-                    row["Registered Engineer Phone"]
+                    row["Registered Engineer Phone"],
+                    row["Structural Engineer Name/Address"],
+                    row["Structural Engineer Mail"],
+                    row["Structural Engineer Phone"]
                 ])                
-                approval_letter_cell = ws.cell(row=ws.max_row, column=9)
-                if row["Approval Letter URL"]:
-                    approval_letter_cell.hyperlink = row["Approval Letter URL"]
-                    approval_letter_cell.font = Font(color="0000FF", underline="single")                
-                approved_plan_cell = ws.cell(row=ws.max_row, column=10)
+                
+                # Add hyperlinks for downloadable documents
+                approved_plan_cell = ws.cell(row=ws.max_row, column=7)
                 if row["Approved Plan URL"]:
                     approved_plan_cell.hyperlink = row["Approved Plan URL"]
                     approved_plan_cell.font = Font(color="0000FF", underline="single")
                 
-                demand_details_cell = ws.cell(row=ws.max_row, column=11)
+                demand_details_cell = ws.cell(row=ws.max_row, column=8)
                 if row["Demand Details URL"]:
                     demand_details_cell.hyperlink = row["Demand Details URL"]
                     demand_details_cell.font = Font(color="0000FF", underline="single")
+                
+                # Apply text wrapping for long text fields
+                wrap_columns = [9, 10, 11, 14]  # Project Title, Applicant Signature, Registered Engineer, Structural Engineer
+                for col in wrap_columns:
+                    cell = ws.cell(row=ws.max_row, column=col)
+                    cell.alignment = openpyxl.styles.Alignment(wrap_text=True)
                 
             wb.save(self.output_excel)            
         except Exception as e:
@@ -248,7 +272,7 @@ class DTCPApp(QWidget):
             self.setWindowIcon(QIcon(icon_path))
         else:
             pixmap = QPixmap(32, 32)
-            pixmap.fill(QColor("#dc2626"))
+            pixmap.fill(QColor("#8f0606"))
             self.setWindowIcon(QIcon(pixmap))
     
     def setup_ui(self):
@@ -558,8 +582,8 @@ class DTCPApp(QWidget):
     
     def update_progress(self, current, total):
         self.progress.setMaximum(total)
-        self.progress.setValue(current)   
-    
+        self.progress.setValue(current)
+
     def on_scraping_finished(self, message):
         self.scrape_btn.setEnabled(True)
         self.progress.setVisible(False)
