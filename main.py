@@ -2,6 +2,7 @@ import os
 import sys
 import openpyxl
 import pandas as pd
+from style import AppStyle
 from pathlib import Path
 from PyQt5.QtCore import Qt
 from openpyxl import Workbook
@@ -11,24 +12,14 @@ from cropper import process_pdf_from_url
 from PyQt5.QtCore import QThread, pyqtSignal
 from playwright.sync_api import sync_playwright
 from model import extract_pdf_details_from_image    
+from helper import normalize_signature, extract_contact_from_text
 from PyQt5.QtGui import QFont, QColor, QPalette, QPixmap, QMovie, QIcon
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QFileDialog, QGroupBox, QProgressBar, QMessageBox,QSpacerItem, QSizePolicy)
 
-def normalize_signature(sig):
-    if isinstance(sig, dict):
-        return {
-            "name_Address": sig.get("name_Address", "") if sig.get("name_Address", "") is not None else "",
-            "mail": sig.get("mail", "") if sig.get("mail", "") is not None else "",
-            "phone": sig.get("phone", "") if sig.get("phone", "") is not None else ""
-        }
-    if isinstance(sig, str) and sig.strip():
-        return {"name_Address": sig.strip(), "mail": "", "phone": ""}
-    return {"name_Address": "", "mail": "", "phone": ""}
-
 class ScraperThread(QThread):
     finished_signal = pyqtSignal(str)
-    progress_signal = pyqtSignal(int, int)  
-
+    progress_signal = pyqtSignal(int, int)
+    
     def __init__(self, department, approval_type, district, year, output_excel):
         super().__init__()
         self.department = department
@@ -90,10 +81,10 @@ class ScraperThread(QThread):
                         total_rows = 50  
                 except:
                     total_rows = 50                
-                while scraped_count < 2:
+                while scraped_count < 5: 
                     rows = page.query_selector_all("table.PPAData tbody tr")                    
                     for i, row in enumerate(rows):
-                        if scraped_count >= 2:
+                        if scraped_count >= 5:
                             break                            
                         current_count = scraped_count + 1
                         self.progress_signal.emit(current_count, min(10, total_rows))                        
@@ -127,15 +118,46 @@ class ScraperThread(QThread):
                                         print(f"[DEBUG] Model response for {application_no}: {seal_data}")
                                     except Exception as me:
                                         print(f"[ERROR] Model extraction failed: {me}")
-                                        seal_data = {}                                                                            
-                                    project_title = seal_data.get("PROJECT TITLE", "N/A")
-                                    applicant_signature = seal_data.get("OWNER SIGNATURE", "")                                
-                                    architect_signature = normalize_signature(seal_data.get("REGISTERED ENGINEER", {}))
-                                    structural_engineer_signature = normalize_signature(seal_data.get("STRUCTURAL ENGINEER", {}))
+                                        seal_data = {}                                    
+                                    if isinstance(seal_data, dict) and seal_data.get("status"):
+                                        project_title = seal_data.get("PROJECT TITLE", "N/A")
+                                        applicant_signature = seal_data.get("OWNER SIGNATURE", "")                                        
+                                        architect_info = seal_data.get("REGISTERED ENGINEER", "")
+                                        if isinstance(architect_info, dict):
+                                            architect_signature = normalize_signature(architect_info)
+                                        elif isinstance(architect_info, str):
+                                            email, phone = extract_contact_from_text(architect_info)
+                                            architect_signature = {
+                                                "name_Address": architect_info.strip(),
+                                                "mail": email,
+                                                "phone": phone
+                                            }                                        
+                                        structural_info = seal_data.get("STRUCTURAL ENGINEER", "")
+                                        if isinstance(structural_info, dict):
+                                            structural_engineer_signature = normalize_signature(structural_info)
+                                        elif isinstance(structural_info, str):
+                                            # Try to extract email and phone from the string
+                                            email, phone = extract_contact_from_text(structural_info)
+                                            structural_engineer_signature = {
+                                                "name_Address": structural_info.strip(),
+                                                "mail": email,
+                                                "phone": phone
+                                            }
+                                    else:
+                                        if isinstance(seal_data, dict):
+                                            project_title = seal_data.get("PROJECT TITLE", "N/A")
+                                            applicant_signature = seal_data.get("OWNER SIGNATURE", "")                                            
+                                            structural_info = seal_data.get("STRUCTURAL ENGINEER", "") or seal_data.get("data", {}).get("STRUCTURAL ENGINEER", "")
+                                            if structural_info:
+                                                email, phone = extract_contact_from_text(str(structural_info))
+                                                structural_engineer_signature = {
+                                                    "name_Address": str(structural_info).strip(),
+                                                    "mail": email,
+                                                    "phone": phone
+                                                }
                         except Exception as e:
                             print(f"[ERROR] PDF processing failed: {e}")
-                            pass                        
-                        
+                            pass                   
                         demand_details_url = ""
                         try:
                             demand_details_element = cells[10].query_selector("a")
@@ -143,8 +165,7 @@ class ScraperThread(QThread):
                                 demand_details_href = demand_details_element.get_attribute("href") or ""
                                 demand_details_url = urljoin(page.url, demand_details_href)
                         except:
-                            pass
-                        
+                            pass                        
                         rows_data.append({
                             "S.No": s_no,
                             "Application No": application_no,
@@ -191,8 +212,7 @@ class ScraperThread(QThread):
                 "Registered Engineer Name/Address", "Registered Engineer Mail", "Registered Engineer Phone",
                 "Structural Engineer Name/Address", "Structural Engineer Mail", "Structural Engineer Phone"
             ]
-            ws.append(headers)           
-            
+            ws.append(headers)          
             column_widths = {
                 'A': 8,    
                 'B': 20,  
@@ -213,8 +233,7 @@ class ScraperThread(QThread):
             }
             
             for col, width in column_widths.items():
-                ws.column_dimensions[col].width = width
-            
+                ws.column_dimensions[col].width = width            
             for row in rows_data:
                 ws.append([
                     row["S.No"],
@@ -230,25 +249,22 @@ class ScraperThread(QThread):
                     row["Registered Engineer Name/Address"],
                     row["Registered Engineer Mail"],
                     row["Registered Engineer Phone"],
-                    row["Structural Engineer Name/Address"],
-                    row["Structural Engineer Mail"],
+                    row["Structural Engineer Name/Address"],  
+                    row["Structural Engineer Mail"],  
                     row["Structural Engineer Phone"]
                 ])
                 approved_plan_cell = ws.cell(row=ws.max_row, column=7)
                 if row["Approved Plan URL"]:
                     approved_plan_cell.hyperlink = row["Approved Plan URL"]
-                    approved_plan_cell.font = Font(color="0000FF", underline="single")
-                
+                    approved_plan_cell.font = Font(color="0000FF", underline="single")                
                 demand_details_cell = ws.cell(row=ws.max_row, column=8)
                 if row["Demand Details URL"]:
                     demand_details_cell.hyperlink = row["Demand Details URL"]
-                    demand_details_cell.font = Font(color="0000FF", underline="single")
-                
-                wrap_columns = [9, 10, 11, 14]
+                    demand_details_cell.font = Font(color="0000FF", underline="single")                
+                wrap_columns = [9, 10, 11, 14] 
                 for col in wrap_columns:
                     cell = ws.cell(row=ws.max_row, column=col)
-                    cell.alignment = openpyxl.styles.Alignment(wrap_text=True)
-                
+                    cell.alignment = openpyxl.styles.Alignment(wrap_text=True)                
             wb.save(self.output_excel)            
         except Exception as e:
             raise Exception(f"Failed to write Excel: {e}")
@@ -284,152 +300,7 @@ class DTCPApp(QWidget):
         palette.setColor(QPalette.ButtonText, QColor("#ffffff"))
         self.setPalette(palette)
         self.setAutoFillBackground(True)        
-        self.setStyleSheet("""
-            QMainWindow, QWidget {
-                font-family: 'Segoe UI', 'Inter', sans-serif;
-                font-size: 14px;
-                color: #ffffff;
-                background-color: #000000;
-            }            
-            QLabel#MainTitle {
-                color: #dc2626;
-                font-size: 32px;
-                font-weight: 800;
-                letter-spacing: -0.5px;
-                text-align: center;
-                background: transparent;
-            }            
-            QLabel#CompanyName {
-                color: #ffffff;
-                font-size: 24px;
-                font-weight: 700;
-                text-align: center;
-                background: transparent;
-            }            
-            QLabel#ProductName {
-                color: #dc2626;
-                font-size: 20px;
-                font-weight: 600;
-                text-align: center;
-                background: transparent;
-            }            
-            QLabel#ProductDesc {
-                color: #cccccc;
-                font-size: 14px;
-                font-weight: 400;
-                text-align: center;
-                background: transparent;
-            }            
-            QLabel#SubTitleLabel {
-                color: #cccccc;
-                font-size: 12px;
-                font-weight: 400;
-                margin-bottom: 15px;
-                text-align: center;
-                background: transparent;
-            }            
-            QLabel#PythonLogo {
-                background: transparent;
-                border: none;
-            }            
-            QGroupBox {
-                border: 2px solid #dc2626;
-                border-radius: 8px;
-                padding: 15px;
-                background-color: #1a1a1a;
-                margin-top: 8px;
-                font-weight: 700;
-                color: #ffffff;
-            }            
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px 0 8px;
-                color: #dc2626;
-                font-weight: 700;
-                font-size: 14px;
-                background-color: #1a1a1a;
-            }            
-            QComboBox {
-                background-color: #000000;
-                border: 2px solid #dc2626;
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-weight: 600;
-                min-width: 100px;
-                color: #ffffff;
-                font-size: 13px;
-                min-height: 20px;
-            }            
-            QComboBox:focus {
-                border-color: #b91c1c;
-                outline: none;
-            }            
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 20px;
-                border-left: 1px solid #dc2626;
-                border-radius: 0px;
-            }            
-            QComboBox QAbstractItemView {
-                background-color: #000000;
-                border: 2px solid #dc2626;
-                color: #ffffff;
-                selection-background-color: #dc2626;
-                selection-color: #ffffff;
-                outline: none;
-                padding: 4px;
-            }            
-            QComboBox QAbstractItemView::item {
-                padding: 6px 8px;
-                border-radius: 4px;
-            }            
-            QComboBox QAbstractItemView::item:selected {
-                background-color: #dc2626;
-                color: #ffffff;
-            }            
-            QPushButton {
-                background-color: #dc2626;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-weight: 700;
-                font-size: 14px;
-                letter-spacing: 0.3px;
-                min-height: 20px;
-            }            
-            QPushButton:hover {
-                background-color: #b91c1c;
-            }            
-            QPushButton:pressed {
-                background-color: #991b1b;
-            }            
-            QPushButton:disabled {
-                background-color: #666666;
-                color: #999999;
-            }            
-            QProgressBar {
-                border: 2px solid #dc2626;
-                border-radius: 6px;
-                background-color: #000000;
-                text-align: center;
-                color: #ffffff;
-                font-weight: 600;
-                height: 25px;
-                font-size: 12px;
-            }            
-            QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #dc2626, stop:1 #b91c1c);
-                border-radius: 4px;
-            }            
-            QLabel {
-                background: transparent;
-                color: #ffffff;
-            }
-        """)        
+        self.setStyleSheet(AppStyle)       
         header_layout = QHBoxLayout()
         header_layout.setSpacing(30)
         header_layout.setAlignment(Qt.AlignCenter)

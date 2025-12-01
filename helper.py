@@ -1,9 +1,9 @@
 import re
 import os 
-from PIL import Image
 import io
-import base64
 import json
+import base64
+from PIL import Image 
 
 def validate_image(image_path: str):
     try : 
@@ -41,9 +41,7 @@ def clean_json_output(raw_result: str) -> dict:
         cleaned = cleaned.replace("```json", "")
         cleaned = cleaned.replace("```", "")
         cleaned = cleaned.strip()
-        parsed = json.loads(cleaned)
-
-        
+        parsed = json.loads(cleaned)        
         return {
             "PROJECT TITLE": parsed.get("PROJECT TITLE", ""),
             "OWNER SIGNATURE": parsed.get("OWNER SIGNATURE", ""),
@@ -60,10 +58,6 @@ def clean_json_output(raw_result: str) -> dict:
             "REGISTERED ENGINEER": ""
         }
     
-
-import re
-import json
-
 def extract_engineer_blocks(text):
     blocks = re.split(r'\n\s*\n', text.strip())
     merged = []
@@ -107,3 +101,35 @@ def process_structural_signatures(input_data):
         else:
             result[key] = value
     return result
+
+def normalize_signature(sig):
+    if isinstance(sig, dict):
+        return {
+            "name_Address": sig.get("name_Address", "") if sig.get("name_Address", "") is not None else "",
+            "mail": sig.get("mail", "") if sig.get("mail", "") is not None else "",
+            "phone": sig.get("phone", "") if sig.get("phone", "") is not None else ""
+        }
+    if isinstance(sig, str) and sig.strip():
+        return {"name_Address": sig.strip(), "mail": "", "phone": ""}
+    return {"name_Address": "", "mail": "", "phone": ""}
+
+def extract_contact_from_text(text):
+    email = ""
+    phone = ""    
+    if text:
+        import re
+        email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+        email_matches = re.findall(email_pattern, text)
+        if email_matches:
+            email = email_matches[0]        
+        phone_pattern = r'(\+91[-\s]?)?[6-9]\d{9}'
+        phone_matches = re.findall(phone_pattern, text)
+        if phone_matches:
+            for match in phone_matches:
+                if isinstance(match, tuple):
+                    phone = match[0] if match[0] else match[1]
+                else:
+                    phone = match
+                if phone:
+                    break    
+    return email, phone

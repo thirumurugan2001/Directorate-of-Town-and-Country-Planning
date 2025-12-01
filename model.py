@@ -174,7 +174,8 @@ def extract_pdf_details_from_image(image_path: str):
         final_data = {
             "PROJECT TITLE": extract_detail.get("PROJECT TITLE", ""),
             "OWNER SIGNATURE": extract_detail.get("OWNER SIGNATURE", ""),            
-            "REGISTERED ENGINEER": extract_detail.get("REGISTERED ENGINEER", "")
+            "REGISTERED ENGINEER": extract_detail.get("REGISTERED ENGINEER", ""),
+            "STRUCTURAL ENGINEER": extract_detail.get("STRUCTURAL ENGINEER", "") 
         }
         return {
             "status": True,
@@ -182,7 +183,8 @@ def extract_pdf_details_from_image(image_path: str):
             "message": "Successfully extracted document details",
             "PROJECT TITLE": final_data["PROJECT TITLE"],
             "OWNER SIGNATURE": final_data["OWNER SIGNATURE"],            
-            "REGISTERED ENGINEER": final_data["REGISTERED ENGINEER"]
+            "REGISTERED ENGINEER": final_data["REGISTERED ENGINEER"],
+            "STRUCTURAL ENGINEER": final_data["STRUCTURAL ENGINEER"] 
         }
     except Exception as e:
         print(f"[ERROR] extract_pdf_details_from_image: {str(e)}")
