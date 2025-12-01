@@ -1,5 +1,6 @@
 import os
 import sys
+import openpyxl
 import pandas as pd
 from pathlib import Path
 from PyQt5.QtCore import Qt
@@ -89,10 +90,10 @@ class ScraperThread(QThread):
                         total_rows = 50  
                 except:
                     total_rows = 50                
-                while scraped_count < 10:
+                while scraped_count < 2:
                     rows = page.query_selector_all("table.PPAData tbody tr")                    
                     for i, row in enumerate(rows):
-                        if scraped_count >= 10:
+                        if scraped_count >= 2:
                             break                            
                         current_count = scraped_count + 1
                         self.progress_signal.emit(current_count, min(10, total_rows))                        
@@ -126,9 +127,7 @@ class ScraperThread(QThread):
                                         print(f"[DEBUG] Model response for {application_no}: {seal_data}")
                                     except Exception as me:
                                         print(f"[ERROR] Model extraction failed: {me}")
-                                        seal_data = {}                                        
-                                    
-                                    # Extract all fields from model response
+                                        seal_data = {}                                                                            
                                     project_title = seal_data.get("PROJECT TITLE", "N/A")
                                     applicant_signature = seal_data.get("OWNER SIGNATURE", "")                                
                                     architect_signature = normalize_signature(seal_data.get("REGISTERED ENGINEER", {}))
@@ -192,26 +191,25 @@ class ScraperThread(QThread):
                 "Registered Engineer Name/Address", "Registered Engineer Mail", "Registered Engineer Phone",
                 "Structural Engineer Name/Address", "Structural Engineer Mail", "Structural Engineer Phone"
             ]
-            ws.append(headers)            
+            ws.append(headers)           
             
-            # Set column widths for better readability
             column_widths = {
-                'A': 8,    # S.No
-                'B': 20,   # Application No
-                'C': 15,   # District
-                'D': 18,   # Approval Type
-                'E': 15,   # Permit Issue Date
-                'F': 15,   # Total Fees
-                'G': 15,   # Approved Plan
-                'H': 15,   # Demand Details
-                'I': 40,   # Project Title
-                'J': 30,   # Applicant/Owner Signature
-                'K': 40,   # Registered Engineer Name/Address
-                'L': 25,   # Registered Engineer Mail
-                'M': 20,   # Registered Engineer Phone
-                'N': 40,   # Structural Engineer Name/Address
-                'O': 25,   # Structural Engineer Mail
-                'P': 20,   # Structural Engineer Phone
+                'A': 8,    
+                'B': 20,  
+                'C': 15,  
+                'D': 18,   
+                'E': 15,   
+                'F': 15,  
+                'G': 15,  
+                'H': 15,   
+                'I': 40,  
+                'J': 30,   
+                'K': 40,  
+                'L': 25,  
+                'M': 20,   
+                'N': 40,  
+                'O': 25,  
+                'P': 20,
             }
             
             for col, width in column_widths.items():
@@ -235,9 +233,7 @@ class ScraperThread(QThread):
                     row["Structural Engineer Name/Address"],
                     row["Structural Engineer Mail"],
                     row["Structural Engineer Phone"]
-                ])                
-                
-                # Add hyperlinks for downloadable documents
+                ])
                 approved_plan_cell = ws.cell(row=ws.max_row, column=7)
                 if row["Approved Plan URL"]:
                     approved_plan_cell.hyperlink = row["Approved Plan URL"]
@@ -248,8 +244,7 @@ class ScraperThread(QThread):
                     demand_details_cell.hyperlink = row["Demand Details URL"]
                     demand_details_cell.font = Font(color="0000FF", underline="single")
                 
-                # Apply text wrapping for long text fields
-                wrap_columns = [9, 10, 11, 14]  # Project Title, Applicant Signature, Registered Engineer, Structural Engineer
+                wrap_columns = [9, 10, 11, 14]
                 for col in wrap_columns:
                     cell = ws.cell(row=ws.max_row, column=col)
                     cell.alignment = openpyxl.styles.Alignment(wrap_text=True)

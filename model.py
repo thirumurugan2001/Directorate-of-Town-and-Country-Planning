@@ -100,8 +100,6 @@ def extract_pdf_details_from_image(image_path: str):
                 "message": "Failed to encode image",
                 "data": {}
             }
-
-        # Enhanced API call with temperature control for consistency
         response = client.chat.completions.create(
             model=os.getenv("MODEL"),
             messages=[
@@ -117,10 +115,9 @@ def extract_pdf_details_from_image(image_path: str):
                     ]
                 },
             ],
-            max_tokens=1500,  # Increased for longer text blocks
-            temperature=0.1,  # Lower temperature for more consistent results
-            top_p=0.1,        # More deterministic output
-        )
+            max_tokens=1500,  
+            temperature=0.1,  
+            top_p=0.1,     )
 
         raw_result = response.choices[0].message.content.strip()
         print(f"[DEBUG] Raw API response: {raw_result}")
@@ -179,7 +176,6 @@ def extract_pdf_details_from_image(image_path: str):
             "OWNER SIGNATURE": extract_detail.get("OWNER SIGNATURE", ""),            
             "REGISTERED ENGINEER": extract_detail.get("REGISTERED ENGINEER", "")
         }
-        print(f"[DEBUG] Final extracted data: {final_data}")
         return {
             "status": True,
             "statusCode": 200,
