@@ -204,12 +204,11 @@ class ScraperThread(QThread):
         try:
             wb = Workbook()
             ws = wb.active
-            ws.title = "DTCP Results"            
+            ws.title = "DTCP Results"           
             headers = [
                 "S.No", "Application No", "District", "Approval Type",
                 "Permit Issue Date", "Total Fees", "Approved Plan", "Demand Details",
-                "Project Title", "Applicant/Owner Signature",
-                "Registered Engineer Name/Address", "Registered Engineer Mail", "Registered Engineer Phone",
+                "Project Title", "Applicant/Owner Signature","Architect Engineer Name/Address", "Architect Engineer Mail", "Architect Engineer Phone",
                 "Structural Engineer Name/Address", "Structural Engineer Mail", "Structural Engineer Phone"
             ]
             ws.append(headers)          
